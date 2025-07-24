@@ -9,12 +9,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  http: 1.1.0
+  http: ^1.1.0
   intl: ^0.18.1
   table_calendar: ^3.0.9
   shared_preferences: ^2.2.2
   page_transition: ^2.0.9
-  google_fonts: ^6.1.0
+  google_fonts: ^4.0.4
   font_awesome_flutter: ^10.7.0 
 
 dev_dependencies:

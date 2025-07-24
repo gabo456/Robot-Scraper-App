@@ -1,3 +1,5 @@
+import '../helpers/schedule_helper.dart';
+import 'package:intl/intl.dart'; // For formatting the date
 import 'package:flutter/material.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -70,7 +72,23 @@ class _HomeScreenState extends State<HomeScreen>
   void logout() {
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
+void showNextCleaningNotification() {
+  DateTime nextCleaning = ScheduleHelper.getNextCleaning(DateTime.now());
 
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text("Next Cleaning Schedule"),
+      content: Text("Scheduled on: ${DateFormat('MMMM dd, yyyy').format(nextCleaning)}"),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text("OK"),
+        ),
+      ],
+    ),
+  );
+}
   @override
   Widget build(BuildContext context) {
     final themeColor = Colors.black87;
@@ -78,10 +96,17 @@ class _HomeScreenState extends State<HomeScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Robot Scraper"),
-        backgroundColor: themeColor,
-        foregroundColor: highlightColor,
-      ),
+       title: const Text("Robot Scraper"),
+       backgroundColor: themeColor,
+       foregroundColor: highlightColor,
+       actions: [
+         IconButton(
+           icon: const Icon(Icons.notifications_active),
+           tooltip: "Next Cleaning",
+           onPressed: showNextCleaningNotification,
+         ),
+       ],
+     ),
       drawer: Drawer(
         backgroundColor: Colors.grey[100],
         child: ListView(

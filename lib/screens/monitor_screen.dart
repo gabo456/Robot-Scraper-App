@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class MonitorScreen extends StatefulWidget {
   const MonitorScreen({super.key});
@@ -10,18 +12,105 @@ class MonitorScreen extends StatefulWidget {
 
 class _MonitorScreenState extends State<MonitorScreen> {
   final binsController = TextEditingController();
-  final List<Map<String, String>> binRecords = [];
+  List<Map<String, dynamic>> binRecords = [];
+  bool isLoading = true;
+  bool isSubmitting = false;
 
-  void addBinRecord() {
-    if (binsController.text.isEmpty) return;
+  final String insertApiUrl = "http://192.168.1.11/robot_cleaner/insert_bins.php";
+  final String fetchApiUrl = "http://192.168.1.11/robot_cleaner/fetch_bins.php";
 
-    String bins = binsController.text;
-    String date = DateFormat('MM/dd/yy').format(DateTime.now());
+  @override
+  void initState() {
+    super.initState();
+    fetchBinRecords();
+  }
 
-    setState(() {
-      binRecords.insert(0, {"bins": bins, "date": date});
-      binsController.clear();
-    });
+  Future<void> fetchBinRecords() async {
+    setState(() => isLoading = true);
+    try {
+      final response = await http.get(Uri.parse(fetchApiUrl));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          binRecords = data.map((record) => {
+            "bins": record['bins_filled']?.toString() ?? '0', // Handle potential null
+            "date": record['date_collected']?.toString() ?? 'Unknown' // Handle potential null
+          }).toList();
+          isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load data: ${response.statusCode}');
+      }
+    } catch (e) {
+      _showError("Failed to fetch records: ${e.toString()}");
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> addBinRecord() async {
+    // Validate input
+    if (binsController.text.isEmpty) {
+      _showError("Please enter number of bins filled");
+      return;
+    }
+
+    // Parse and validate the number
+    final bins = int.tryParse(binsController.text);
+    if (bins == null || bins < 0) {
+      _showError("Please enter a valid positive number");
+      return;
+    }
+
+    // Format date
+    final date = DateFormat('MM/dd/yy').format(DateTime.now());
+    
+    setState(() => isSubmitting = true);
+
+    try {
+      final response = await http.post(
+        Uri.parse(insertApiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          "bins_filled": bins,
+          "date_collected": date,
+        }),
+      );
+
+      final responseData = json.decode(response.body);
+      
+      if (response.statusCode == 200) {
+        // Refresh data after successful insert
+        await fetchBinRecords();
+        binsController.clear();
+        _showSuccess("Data successfully recorded!");
+      } else {
+        _showError(responseData['error'] ?? "Server error: ${response.statusCode}");
+      }
+    } catch (e) {
+      _showError("Connection error: ${e.toString()}");
+    } finally {
+      setState(() => isSubmitting = false);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -86,16 +175,19 @@ class _MonitorScreenState extends State<MonitorScreen> {
                           labelText: "Bins Filled",
                           labelStyle: TextStyle(fontWeight: FontWeight.bold),
                           border: UnderlineInputBorder(),
+                          hintText: "Enter number of filled bins",
                         ),
                       ),
                     ),
                     const SizedBox(width: 10),
-                    IconButton(
-                      onPressed: addBinRecord,
-                      icon: const Icon(Icons.add_circle,
-                          color: Colors.green, size: 30),
-                      tooltip: "Add bin record",
-                    ),
+                    isSubmitting
+                        ? const CircularProgressIndicator()
+                        : IconButton(
+                            onPressed: addBinRecord,
+                            icon: const Icon(Icons.add_circle,
+                                color: Colors.green, size: 30),
+                            tooltip: "Add bin record",
+                          ),
                   ],
                 ),
               ),
@@ -111,42 +203,44 @@ class _MonitorScreenState extends State<MonitorScreen> {
             ),
             const SizedBox(height: 10),
             Expanded(
-              child: binRecords.isEmpty
-                  ? const Center(
-                      child: Text(
-                        "No bin records yet.",
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: binRecords.length,
-                      itemBuilder: (context, index) {
-                        final record = binRecords[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          child: ListTile(
-                            leading: const Icon(Icons.history,
-                                color: Colors.deepPurple),
-                            title: Text(
-                              "Bins Filled: ${record['bins']}",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
-                              ),
-                            ),
-                            subtitle: Text(
-                              "Date Collected: ${record['date']}",
-                              style: const TextStyle(
-                                color: Colors.black54,
-                              ),
-                            ),
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : binRecords.isEmpty
+                      ? const Center(
+                          child: Text(
+                            "No bin records yet.",
+                            style: TextStyle(color: Colors.black54),
                           ),
-                        );
-                      },
-                    ),
+                        )
+                      : ListView.builder(
+                          itemCount: binRecords.length,
+                          itemBuilder: (context, index) {
+                            final record = binRecords[index];
+                            return Card(
+                              margin: const EdgeInsets.symmetric(vertical: 6),
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              child: ListTile(
+                                leading: const Icon(Icons.history,
+                                    color: Colors.deepPurple),
+                                title: Text(
+                                  "Bins Filled: ${record['bins']}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  "Date Collected: ${record['date']}",
+                                  style: const TextStyle(
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
             ),
           ],
         ),

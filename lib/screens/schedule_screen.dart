@@ -62,7 +62,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
         actions: [
           IconButton(
             icon: const Icon(Icons.home),
-            onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+            onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false),
           ),
         ],
       ),
