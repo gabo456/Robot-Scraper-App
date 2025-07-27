@@ -16,8 +16,8 @@ class _MonitorScreenState extends State<MonitorScreen> {
   bool isLoading = true;
   bool isSubmitting = false;
 
-  final String insertApiUrl = "http://192.168.1.11/robot_cleaner/insert_bins.php";
-  final String fetchApiUrl = "http://192.168.1.11/robot_cleaner/fetch_bins.php";
+  final String insertApiUrl = "http://10.0.2.2/robot_cleaner/insert_bins.php";
+  final String fetchApiUrl = "http://10.0.2.2/robot_cleaner/fetch_bins.php";
 
   @override
   void initState() {
@@ -33,8 +33,8 @@ class _MonitorScreenState extends State<MonitorScreen> {
         final List<dynamic> data = json.decode(response.body);
         setState(() {
           binRecords = data.map((record) => {
-            "bins": record['bins_filled']?.toString() ?? '0', // Handle potential null
-            "date": record['date_collected']?.toString() ?? 'Unknown' // Handle potential null
+            "bins": record['bins_filled']?.toString() ?? '0', 
+            "date": record['date_collected']?.toString() ?? 'Unknown' 
           }).toList();
           isLoading = false;
         });
@@ -48,20 +48,17 @@ class _MonitorScreenState extends State<MonitorScreen> {
   }
 
   Future<void> addBinRecord() async {
-    // Validate input
     if (binsController.text.isEmpty) {
       _showError("Please enter number of bins filled");
       return;
     }
 
-    // Parse and validate the number
     final bins = int.tryParse(binsController.text);
     if (bins == null || bins < 0) {
       _showError("Please enter a valid positive number");
       return;
     }
 
-    // Format date
     final date = DateFormat('MM/dd/yy').format(DateTime.now());
     
     setState(() => isSubmitting = true);
@@ -79,7 +76,6 @@ class _MonitorScreenState extends State<MonitorScreen> {
       final responseData = json.decode(response.body);
       
       if (response.statusCode == 200) {
-        // Refresh data after successful insert
         await fetchBinRecords();
         binsController.clear();
         _showSuccess("Data successfully recorded!");
@@ -121,6 +117,16 @@ class _MonitorScreenState extends State<MonitorScreen> {
         backgroundColor: Colors.black87,
         foregroundColor: Colors.white,
         elevation: 4,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home),
+            tooltip: "Back to Home",
+            onPressed: () {
+              // Navigate to home screen using named route
+              Navigator.pushReplacementNamed(context, '/home');
+            },
+          ),
+        ],
       ),
       backgroundColor: const Color(0xFFF2F2F2),
       body: Padding(
